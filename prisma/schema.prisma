@@ -1,0 +1,191 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  CUSTOMER
+  ADMIN
+}
+
+enum PublicationStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model User {
+  id          String   @id @default(cuid())
+  phoneNumber String   @unique @map("phone_number")
+  name        String?
+  role        UserRole @default(CUSTOMER)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  sessions Session[]
+  carts    Cart[]
+
+  @@map("users")
+}
+
+model Session {
+  id               String    @id @default(cuid())
+  userId           String    @map("user_id")
+  hashedToken      String    @unique @map("hashed_token")
+  expiresAt        DateTime  @map("expires_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  revokedAt        DateTime? @map("revoked_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model OtpChallenge {
+  id          String    @id @default(cuid())
+  phoneNumber String    @map("phone_number")
+  codeHash    String    @map("code_hash")
+  expiresAt   DateTime  @map("expires_at")
+  attempts    Int       @default(0)
+  consumedAt  DateTime? @map("consumed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@index([phoneNumber, createdAt])
+  @@index([expiresAt])
+  @@map("otp_challenges")
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  imageKey    String?  @map("image_key")
+  imageUrl    String?  @map("image_url")
+  parentId    String?  @map("parent_id")
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children Category[] @relation("CategoryTree")
+
+  products ProductCategory[]
+
+  @@index([parentId, sortOrder])
+  @@map("categories")
+}
+
+model Product {
+  id            String            @id @default(cuid())
+  name          String
+  slug          String            @unique
+  price         BigInt?
+  stockQuantity Int               @default(0) @map("stock_quantity")
+  description   Json?
+  status        PublicationStatus @default(DRAFT)
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+
+  categories ProductCategory[]
+  images     ProductImage[]
+  cartItems  CartItem[]
+
+  @@index([status, createdAt])
+  @@index([name])
+  @@map("products")
+}
+
+model ProductCategory {
+  productId  String @map("product_id")
+  categoryId String @map("category_id")
+
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([productId, categoryId])
+  @@index([categoryId])
+  @@map("product_categories")
+}
+
+model ProductImage {
+  id         String   @id @default(cuid())
+  productId  String   @map("product_id")
+  storageKey String   @map("storage_key")
+  url        String
+  altText    String?  @map("alt_text")
+  sortOrder  Int      @default(0) @map("sort_order")
+  isPrimary  Boolean  @default(false) @map("is_primary")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, sortOrder])
+  @@map("product_images")
+}
+
+model StoreSettings {
+  id                    String   @id @default("default")
+  storeName             String   @default("یونس") @map("store_name")
+  logoKey               String?  @map("logo_key")
+  logoUrl               String?  @map("logo_url")
+  mobilePhones          String[] @default([]) @map("mobile_phones")
+  landlinePhones        String[] @default([]) @map("landline_phones")
+  address               String?
+  instagramUrl          String?  @map("instagram_url")
+  telegramUrl           String?  @map("telegram_url")
+  whatsappUrl           String?  @map("whatsapp_url")
+  additionalDescription String?  @map("additional_description")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  @@map("store_settings")
+}
+
+model Cart {
+  id             String   @id @default(cuid())
+  userId         String?  @unique @map("user_id")
+  guestTokenHash String?  @unique @map("guest_token_hash")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  user  User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items CartItem[]
+
+  @@map("carts")
+}
+
+model CartItem {
+  id        String   @id @default(cuid())
+  cartId    String   @map("cart_id")
+  productId String   @map("product_id")
+  quantity  Int
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  cart    Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@unique([cartId, productId])
+  @@index([productId])
+  @@map("cart_items")
+}
+
+model MediaAsset {
+  id         String   @id @default(cuid())
+  storageKey String   @unique @map("storage_key")
+  url        String
+  mimeType   String   @map("mime_type")
+  sizeBytes  Int      @map("size_bytes")
+  purpose    String
+  createdAt  DateTime @default(now()) @map("created_at")
+  verifiedAt DateTime? @map("verified_at")
+
+  @@index([purpose, createdAt])
+  @@map("media_assets")
+}
