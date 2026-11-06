@@ -40,7 +40,7 @@ export function getEnv(): AppEnv {
 
 export function isDevelopmentOtpEnabled(): boolean {
   const env = getEnv();
-  return env.OTP_MODE === "development" && env.NODE_ENV !== "production";
+  return env.OTP_MODE === "development" /* && env.NODE_ENV !== "production" */;
 }
 
 export function isS3Configured(): boolean {
